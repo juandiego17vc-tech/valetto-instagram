@@ -129,6 +129,7 @@ function elegir(relojes) {
     console.log("Ya se publicaron todos: arranco la vuelta de nuevo.");
     pendientes = relojes;
     nuevoHistorial = [];
+    writeFileSync(HISTORIAL, "[]\n");
   }
   const reloj = pendientes[Math.floor(Math.random() * pendientes.length)];
   return { reloj, nuevoHistorial: [...nuevoHistorial, reloj.clave] };
@@ -259,23 +260,20 @@ async function publicarCarrusel(imagenes, caption) {
 
 // ---------- Contenido educativo (carrusel del día) ----------
 
-async function educativoDelDia() {
-  const posts = JSON.parse(readFileSync("contenido/educativo.json", "utf8"));
-  const HIST = "posted-edu.json";
-  const hechos = existsSync(HIST) ? JSON.parse(readFileSync(HIST, "utf8")) : [];
-  const post = posts.find((p) => !hechos.includes(p.n));
-  if (!post) {
-    console.log("Ya se publicaron todos los educativos. Agregá nuevos en contenido/educativo.json.");
-    return;
-  }
+const HIST_EDU = "posted-edu.json";
+const leerJSON = (f, def) => (existsSync(f) ? JSON.parse(readFileSync(f, "utf8")) : def);
+const guardarJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2) + "\n");
 
-  // Las placas ya están hechas en contenido/imagenes (NN-1.jpg ... NN-5.jpg)
+function planEducativo() {
+  const posts = leerJSON("contenido/educativo.json", []);
+  const hechos = leerJSON(HIST_EDU, []);
+  const post = posts.find((p) => !hechos.includes(p.n));
+  if (!post) return null;
   const repo = process.env.GITHUB_REPOSITORY;
   const nn = String(post.n).padStart(2, "0");
   const total = post.slides.length + 2; // portada + slides + cierre
   const imagenes = Array.from({ length: total }, (_, k) =>
     `https://raw.githubusercontent.com/${repo}/main/contenido/imagenes/${nn}-${k + 1}.jpg`);
-
   const caption = [
     post.caption,
     "",
@@ -285,16 +283,90 @@ async function educativoDelDia() {
     "",
     "#relojes #relojesoriginales #relojeria #watchtips #buenosaires #valetto",
   ].join("\n");
+  return { tipo: "educativo", clave: post.n, titulo: `Educativo #${post.n}: ${post.gancho}`, imagenes, caption };
+}
 
-  console.log(`\n===== EDUCATIVO #${post.n} =====\n${post.gancho}\n`);
-  console.log(imagenes.join("\n"));
-  console.log("\n" + caption + "\n");
+async function planReloj() {
+  const relojes = await leerCatalogo();
+  console.log(`Relojes disponibles encontrados: ${relojes.length}`);
+  if (relojes.length === 0) throw new Error("No encontré relojes disponibles en el catálogo");
+  const { reloj } = elegir(relojes);
+  let imagen = armarImagen(reloj, OVERLAY);
+  if (OVERLAY && !(await imagenFunciona(imagen))) imagen = armarImagen(reloj, true, "Arial");
+  if (OVERLAY && !(await imagenFunciona(imagen))) imagen = armarImagen(reloj, false);
+  return { tipo: "reloj", clave: reloj.clave, titulo: `Reloj del día: ${reloj.titulo}`, imagenes: [imagen], caption: armarCaption(reloj) };
+}
 
-  if (DRY_RUN) return console.log("MODO PRUEBA: no se publicó nada.");
-  if (!process.env.IG_TOKEN) throw new Error("Falta el secret IG_TOKEN");
-  const id = await publicarCarrusel(imagenes, caption);
-  writeFileSync(HIST, JSON.stringify([...hechos, post.n], null, 2) + "\n");
-  console.log(`✅ Educativo publicado (id ${id})`);
+function marcarHecho(plan) {
+  if (plan.tipo === "educativo") {
+    guardarJSON(HIST_EDU, [...leerJSON(HIST_EDU, []), plan.clave]);
+  } else {
+    let h = leerJSON(HISTORIAL, []);
+    guardarJSON(HISTORIAL, [...h, plan.clave]);
+  }
+}
+
+// ---------- Telegram (vista previa antes de publicar) ----------
+
+const TG_TOKEN = process.env.TELEGRAM_TOKEN;
+const TG_CHAT = process.env.TELEGRAM_CHAT_ID;
+const hayTelegram = Boolean(TG_TOKEN && TG_CHAT);
+
+async function tg(metodo, datos) {
+  const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/${metodo}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datos),
+  });
+  const d = await r.json();
+  if (!d.ok) throw new Error(`Telegram: ${d.description}`);
+  return d.result;
+}
+
+const recortar = (t, n) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
+
+async function enviarVistaPrevia(plan, hora) {
+  if (plan.imagenes.length === 1) {
+    await tg("sendPhoto", { chat_id: TG_CHAT, photo: plan.imagenes[0], caption: recortar(plan.caption, 1024) });
+  } else {
+    await tg("sendMediaGroup", {
+      chat_id: TG_CHAT,
+      media: plan.imagenes.map((url, i) => ({ type: "photo", media: url, ...(i === 0 ? { caption: recortar(plan.caption, 1024) } : {}) })),
+    });
+  }
+  const aviso = await tg("sendMessage", {
+    chat_id: TG_CHAT,
+    text: `👀 VISTA PREVIA — ${plan.titulo}\n\nSale a las ${hora}.\nSi NO querés que se publique, respondé NO a este mensaje.\nSi está bien, no hagas nada.`,
+  });
+  return aviso.message_id;
+}
+
+async function fueCancelado(pendiente) {
+  if (!hayTelegram || !pendiente.mensaje) return false;
+  const updates = await tg("getUpdates", { allowed_updates: ["message"] });
+  return updates.some((u) => {
+    const m = u.message;
+    if (!m || String(m.chat.id) !== String(TG_CHAT)) return false;
+    if (m.date < pendiente.creado) return false;
+    const dice_no = /^\s*no\b/i.test(m.text || "");
+    const respondeA = m.reply_to_message?.message_id;
+    return dice_no && (!respondeA || respondeA === pendiente.mensaje);
+  });
+}
+
+async function avisar(texto) {
+  if (!hayTelegram) return;
+  try { await tg("sendMessage", { chat_id: TG_CHAT, text: texto }); } catch (e) { console.log(e.message); }
+}
+
+async function publicarPlan(plan) {
+  return plan.imagenes.length === 1
+    ? publicar(plan.imagenes[0], plan.caption)
+    : publicarCarrusel(plan.imagenes, plan.caption);
+}
+
+async function enlace(id) {
+  try { return (await graph(id, { fields: "permalink" }, "GET")).permalink || ""; } catch { return ""; }
 }
 
 // ---------- Mantener vivo el token (dura 60 días; cada uso lo renueva) ----------
@@ -311,6 +383,13 @@ async function renovarToken() {
 }
 
 // ---------- Programa principal ----------
+// ACCION: "prueba" (no publica), "vista_previa" (manda a Telegram), "publicar"
+
+const TIPO = process.env.TIPO === "educativo" ? "educativo" : "reloj";
+const ACCION = DRY_RUN ? "prueba" : process.env.ACCION || "publicar";
+const PENDIENTE = `pendiente-${TIPO}.json`;
+const HORA = TIPO === "educativo" ? "11:52" : "18:52";
+console.log(`Tipo: ${TIPO} · Acción: ${ACCION} · Telegram: ${hayTelegram ? "sí" : "no"}`);
 
 if (process.env.IG_TOKEN) {
   try {
@@ -318,47 +397,64 @@ if (process.env.IG_TOKEN) {
     console.log(`Token OK: conectado como @${yo.username}`);
   } catch (e) {
     console.log("⚠️ El token no funciona:", e.message);
-    if (!DRY_RUN) throw e;
+    if (ACCION === "publicar") {
+      await avisar(`⚠️ No pude publicar en Instagram: el token no funciona (${e.message}). Hay que generar uno nuevo.`);
+      throw e;
+    }
   }
-  if (!DRY_RUN) await renovarToken();
 } else {
   console.log("⚠️ Todavía no está cargado el secret IG_TOKEN.");
 }
 
-if (process.env.TIPO === "educativo") {
-  await educativoDelDia();
+const mostrar = (plan) => {
+  console.log(`\n===== ${plan.titulo} =====`);
+  console.log(plan.imagenes.join("\n"));
+  console.log("\n" + plan.caption + "\n");
+};
+
+if (ACCION === "prueba" || ACCION === "vista_previa") {
+  const plan = TIPO === "educativo" ? planEducativo() : await planReloj();
+  if (!plan) {
+    console.log("No quedan educativos sin publicar. Agregá nuevos en contenido/educativo.json.");
+    await avisar("📚 Se terminaron los educativos programados. Pedile a Claude que arme más.");
+    process.exit(0);
+  }
+  mostrar(plan);
+  if (ACCION === "prueba") {
+    console.log("MODO PRUEBA: no se publicó nada.");
+  } else if (!hayTelegram) {
+    console.log("Telegram no está configurado: no mando vista previa.");
+  } else {
+    const mensaje = await enviarVistaPrevia(plan, HORA);
+    guardarJSON(PENDIENTE, { ...plan, creado: Math.floor(Date.now() / 1000), mensaje });
+    console.log("📲 Vista previa enviada a Telegram.");
+  }
   process.exit(0);
 }
 
-const relojes = await leerCatalogo();
-console.log(`Relojes disponibles encontrados: ${relojes.length}`);
-if (relojes.length === 0) throw new Error("No encontré relojes disponibles en el catálogo");
-
-const { reloj, nuevoHistorial } = elegir(relojes);
-
-let imagen = armarImagen(reloj, OVERLAY);
-if (OVERLAY && !(await imagenFunciona(imagen))) {
-  console.log("Montserrat no disponible en Cloudinary, pruebo con Arial.");
-  imagen = armarImagen(reloj, true, "Arial");
+// ACCION === "publicar"
+if (!process.env.IG_TOKEN) throw new Error("Falta el secret IG_TOKEN");
+let pendiente = leerJSON(PENDIENTE, null);
+if (pendiente && Date.now() / 1000 - pendiente.creado > 20 * 3600) pendiente = null; // vista previa vieja
+const plan = pendiente || (TIPO === "educativo" ? planEducativo() : await planReloj());
+if (!plan) {
+  console.log("No hay nada para publicar.");
+  process.exit(0);
 }
-if (OVERLAY && !(await imagenFunciona(imagen))) {
-  console.log("La imagen con texto falló, uso la foto sola.");
-  imagen = armarImagen(reloj, false);
-}
-const caption = armarCaption(reloj);
+mostrar(plan);
 
-console.log("\n===== RELOJ ELEGIDO =====");
-console.log(JSON.stringify(reloj, null, 2));
-console.log("\n===== IMAGEN =====\n" + imagen);
-console.log("\n===== TEXTO =====\n" + caption + "\n");
-
-if (DRY_RUN) {
-  console.log("MODO PRUEBA: no se publicó nada.");
-} else {
-  if (!process.env.IG_TOKEN) {
-    throw new Error("Falta el secret IG_TOKEN");
-  }
-  const postId = await publicar(imagen, caption);
-  writeFileSync(HISTORIAL, JSON.stringify(nuevoHistorial, null, 2) + "\n");
-  console.log(`✅ Publicado en Instagram (id ${postId})`);
+if (pendiente && (await fueCancelado(pendiente))) {
+  console.log("❌ Cancelado desde Telegram: no se publica.");
+  marcarHecho(plan); // para que mañana salga otro
+  if (existsSync(PENDIENTE)) writeFileSync(PENDIENTE, "null\n");
+  await avisar(`❌ Listo, NO publiqué: ${plan.titulo}. Mañana sale el siguiente.`);
+  process.exit(0);
 }
+
+await renovarToken();
+const postId = await publicarPlan(plan);
+marcarHecho(plan);
+if (existsSync(PENDIENTE)) writeFileSync(PENDIENTE, "null\n");
+const link = await enlace(postId);
+console.log(`✅ Publicado en Instagram (id ${postId}) ${link}`);
+await avisar(`✅ Publicado: ${plan.titulo}\n${link}`);
