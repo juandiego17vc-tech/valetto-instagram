@@ -139,16 +139,23 @@ function elegir(relojes) {
 const textoCloudinary = (t) =>
   encodeURIComponent(t).replace(/%2C/g, "%252C").replace(/%2F/g, "%252F");
 
-function armarImagen(reloj, conTexto) {
-  // Formato 4:5 (1080x1350), fondo blanco, JPG (Instagram solo acepta JPG)
-  let tx = "c_pad,w_1080,h_1350,b_white,g_north";
-  if (conTexto) {
-    const nombre = reloj.titulo.length > 38 ? reloj.titulo.slice(0, 36) + "…" : reloj.titulo;
-    tx +=
-      `/l_text:Arial_46_bold:${textoCloudinary(nombre.toUpperCase())},co_rgb:0b1929/fl_layer_apply,g_south,y_150` +
-      `/l_text:Arial_70_bold:${textoCloudinary("$" + reloj.precioTarjeta)},co_rgb:0b1929/fl_layer_apply,g_south,y_55`;
+function armarImagen(reloj, conTexto, fuente = "Montserrat") {
+  // Formato 4:5 (1080x1350), JPG (Instagram solo acepta JPG).
+  // Con texto: foto arriba + franja navy (#0B1929, color de la web) con nombre y precio.
+  if (!conTexto) {
+    const tx = "c_fill,g_center,w_1080,h_1350/f_jpg,q_90";
+    return reloj.foto.replace(/\/upload\/(?:[^/]+\/)*?(v\d+\/)/, `/upload/${tx}/$1`);
   }
-  tx += "/f_jpg,q_90";
+  const nombre = reloj.titulo.length > 34 ? reloj.titulo.slice(0, 32) + "…" : reloj.titulo;
+  const f = (size, extra) => `${fuente}_${size}_${extra}`;
+  const tx = [
+    "c_fill,g_center,w_1080,h_1110",
+    "c_pad,w_1080,h_1350,g_north,b_rgb:0b1929",
+    `l_text:${f(42, "bold_italic")}:${textoCloudinary(nombre.toUpperCase())},co_white/fl_layer_apply,g_south,y_150`,
+    `l_text:${f(76, "bold_italic")}:${textoCloudinary("$" + reloj.precioTarjeta)},co_white/fl_layer_apply,g_south,y_52`,
+    `l_text:${f(26, "bold_letter_spacing_10")}:${textoCloudinary("VALETTO")},co_rgb:7a94a8/fl_layer_apply,g_south_east,x_40,y_20`,
+    "f_jpg,q_90",
+  ].join("/");
   return reloj.foto.replace(/\/upload\/(?:[^/]+\/)*?(v\d+\/)/, `/upload/${tx}/$1`);
 }
 
@@ -330,6 +337,10 @@ if (relojes.length === 0) throw new Error("No encontré relojes disponibles en e
 const { reloj, nuevoHistorial } = elegir(relojes);
 
 let imagen = armarImagen(reloj, OVERLAY);
+if (OVERLAY && !(await imagenFunciona(imagen))) {
+  console.log("Montserrat no disponible en Cloudinary, pruebo con Arial.");
+  imagen = armarImagen(reloj, true, "Arial");
+}
 if (OVERLAY && !(await imagenFunciona(imagen))) {
   console.log("La imagen con texto falló, uso la foto sola.");
   imagen = armarImagen(reloj, false);
