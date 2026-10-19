@@ -1,1 +1,15 @@
-null
+{
+  "tipo": "educativo",
+  "clave": 1,
+  "titulo": "Educativo #1: ¿Cuarzo o automático? La pregunta que divide a todos",
+  "imagenes": [
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/01-1.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/01-2.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/01-3.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/01-4.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/01-5.jpg"
+  ],
+  "caption": "Cuarzo vs automático: no es una competencia, es una elección. ¿Vos de qué equipo sos? 👇\n\nGuardalo para tenerlo a mano y compartilo con quien lo necesite.\n⌚ Relojes originales con garantía · valetto.com.ar (link en la bio)\n👉 WhatsApp: 11 6931-2299\n\n#relojes #relojesoriginales #relojeria #watchtips #buenosaires #valetto",
+  "creado": 1792420156,
+  "mensaje": 7
+}
