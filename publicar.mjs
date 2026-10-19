@@ -2,8 +2,8 @@
 // Corre en GitHub Actions (gratis). No necesita instalar nada: usa Node 20.
 //
 // Variables (se cargan como "Secrets" en GitHub):
-//   IG_USER_ID  -> ID de la cuenta de Instagram Business
-//   IG_TOKEN    -> token de acceso de Meta
+//   IG_TOKEN    -> token de acceso de Instagram (app "Valetto Publicador")
+//   IG_USER_ID  -> opcional; si no está, usa la cuenta dueña del token
 // Opcionales:
 //   DRY_RUN=1   -> modo prueba: muestra qué publicaría, pero NO publica
 //   OVERLAY=0   -> publica la foto sola, sin la franja con nombre y precio
@@ -11,7 +11,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const CATALOGO = "https://valetto.com.ar/catalogo";
-const GRAPH = `https://graph.facebook.com/${process.env.GRAPH_VERSION || "v23.0"}`;
+const GRAPH = `https://graph.instagram.com/${process.env.GRAPH_VERSION || "v23.0"}`;
 const DRY_RUN = process.env.DRY_RUN === "1";
 const OVERLAY = process.env.OVERLAY !== "0";
 const HISTORIAL = "posted.json";
@@ -214,7 +214,7 @@ async function graph(path, params, method = "POST") {
 }
 
 async function publicar(imagen, caption) {
-  const ig = process.env.IG_USER_ID;
+  const ig = process.env.IG_USER_ID || "me";
   const { id: creacion } = await graph(`${ig}/media`, { image_url: imagen, caption });
 
   for (let i = 0; i < 12; i++) {
@@ -229,7 +229,7 @@ async function publicar(imagen, caption) {
 }
 
 async function publicarCarrusel(imagenes, caption) {
-  const ig = process.env.IG_USER_ID;
+  const ig = process.env.IG_USER_ID || "me";
   const hijos = [];
   for (const image_url of imagenes) {
     const { id } = await graph(`${ig}/media`, { image_url, is_carousel_item: "true" });
@@ -284,13 +284,28 @@ async function educativoDelDia() {
   console.log("\n" + caption + "\n");
 
   if (DRY_RUN) return console.log("MODO PRUEBA: no se publicó nada.");
-  if (!process.env.IG_USER_ID || !process.env.IG_TOKEN) throw new Error("Faltan los secrets IG_USER_ID o IG_TOKEN");
+  if (!process.env.IG_TOKEN) throw new Error("Falta el secret IG_TOKEN");
   const id = await publicarCarrusel(imagenes, caption);
   writeFileSync(HIST, JSON.stringify([...hechos, post.n], null, 2) + "\n");
   console.log(`✅ Educativo publicado (id ${id})`);
 }
 
+// ---------- Mantener vivo el token (dura 60 días; cada uso lo renueva) ----------
+
+async function renovarToken() {
+  try {
+    const r = await fetch(`https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${process.env.IG_TOKEN}`);
+    const d = await r.json();
+    if (d.expires_in) console.log(`Token renovado: vence en ${Math.round(d.expires_in / 86400)} días.`);
+    else console.log("No se pudo renovar el token:", JSON.stringify(d.error || d));
+  } catch (e) {
+    console.log("No se pudo renovar el token:", e.message);
+  }
+}
+
 // ---------- Programa principal ----------
+
+if (!DRY_RUN && process.env.IG_TOKEN) await renovarToken();
 
 if (process.env.TIPO === "educativo") {
   await educativoDelDia();
@@ -318,8 +333,8 @@ console.log("\n===== TEXTO =====\n" + caption + "\n");
 if (DRY_RUN) {
   console.log("MODO PRUEBA: no se publicó nada.");
 } else {
-  if (!process.env.IG_USER_ID || !process.env.IG_TOKEN) {
-    throw new Error("Faltan los secrets IG_USER_ID o IG_TOKEN");
+  if (!process.env.IG_TOKEN) {
+    throw new Error("Falta el secret IG_TOKEN");
   }
   const postId = await publicar(imagen, caption);
   writeFileSync(HISTORIAL, JSON.stringify(nuevoHistorial, null, 2) + "\n");
