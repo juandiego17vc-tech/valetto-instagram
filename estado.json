@@ -5,5 +5,7 @@
     "resultado": "publicado",
     "listo": true
   },
-  "reloj": {}
+  "reloj": {
+    "previa": 1792443511
+  }
 }
