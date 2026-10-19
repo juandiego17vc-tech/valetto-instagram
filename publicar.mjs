@@ -305,7 +305,18 @@ async function renovarToken() {
 
 // ---------- Programa principal ----------
 
-if (!DRY_RUN && process.env.IG_TOKEN) await renovarToken();
+if (process.env.IG_TOKEN) {
+  try {
+    const yo = await graph("me", { fields: "user_id,username" }, "GET");
+    console.log(`Token OK: conectado como @${yo.username}`);
+  } catch (e) {
+    console.log("⚠️ El token no funciona:", e.message);
+    if (!DRY_RUN) throw e;
+  }
+  if (!DRY_RUN) await renovarToken();
+} else {
+  console.log("⚠️ Todavía no está cargado el secret IG_TOKEN.");
+}
 
 if (process.env.TIPO === "educativo") {
   await educativoDelDia();
