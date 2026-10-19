@@ -383,28 +383,31 @@ async function renovarToken() {
 }
 
 // ---------- Programa principal ----------
-// ACCION: "prueba" (no publica), "vista_previa" (manda a Telegram), "publicar"
+// ACCION:
+//   "auto"         -> (lo que corre cada 15 min) decide solo si toca vista previa o publicar
+//   "prueba"       -> muestra qué publicaría, sin publicar
+//   "vista_previa" -> manda la vista previa a Telegram ahora
+//   "publicar"     -> publica ahora
 
-const TIPO = process.env.TIPO === "educativo" ? "educativo" : "reloj";
-const ACCION = DRY_RUN ? "prueba" : process.env.ACCION || "publicar";
-const PENDIENTE = `pendiente-${TIPO}.json`;
-const HORA = TIPO === "educativo" ? "11:52" : "18:52";
-console.log(`Tipo: ${TIPO} · Acción: ${ACCION} · Telegram: ${hayTelegram ? "sí" : "no"}`);
+const HORARIOS = {
+  educativo: { previa: "10:52", publica: "11:52" },
+  reloj: { previa: "17:52", publica: "18:52" },
+};
+const ESPERA_MIN = 30;   // minutos mínimos entre la vista previa y la publicación
+const ULTIMA_HORA = "23:00"; // después de esta hora no publica (lo deja para mañana)
+const ESTADO = "estado.json";
 
-if (process.env.IG_TOKEN) {
-  try {
-    const yo = await graph("me", { fields: "user_id,username" }, "GET");
-    console.log(`Token OK: conectado como @${yo.username}`);
-  } catch (e) {
-    console.log("⚠️ El token no funciona:", e.message);
-    if (ACCION === "publicar") {
-      await avisar(`⚠️ No pude publicar en Instagram: el token no funciona (${e.message}). Hay que generar uno nuevo.`);
-      throw e;
-    }
-  }
-} else {
-  console.log("⚠️ Todavía no está cargado el secret IG_TOKEN.");
-}
+const ACCION = DRY_RUN ? "prueba" : process.env.ACCION || "auto";
+console.log(`Acción: ${ACCION} · Telegram: ${hayTelegram ? "sí" : "no"}`);
+
+// Fecha y hora de Buenos Aires
+const ahoraBA = () => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return { fecha: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}` };
+};
 
 const mostrar = (plan) => {
   console.log(`\n===== ${plan.titulo} =====`);
@@ -412,49 +415,101 @@ const mostrar = (plan) => {
   console.log("\n" + plan.caption + "\n");
 };
 
-if (ACCION === "prueba" || ACCION === "vista_previa") {
-  const plan = TIPO === "educativo" ? planEducativo() : await planReloj();
+async function chequearToken() {
+  if (!process.env.IG_TOKEN) throw new Error("Falta el secret IG_TOKEN");
+  try {
+    const yo = await graph("me", { fields: "user_id,username" }, "GET");
+    console.log(`Token OK: conectado como @${yo.username}`);
+  } catch (e) {
+    await avisar(`⚠️ No pude publicar en Instagram: el token no funciona (${e.message}). Hay que generar uno nuevo.`);
+    throw e;
+  }
+}
+
+const armarPlan = async (tipo) => (tipo === "educativo" ? planEducativo() : await planReloj());
+
+async function hacerVistaPrevia(tipo) {
+  const plan = await armarPlan(tipo);
   if (!plan) {
-    console.log("No quedan educativos sin publicar. Agregá nuevos en contenido/educativo.json.");
     await avisar("📚 Se terminaron los educativos programados. Pedile a Claude que arme más.");
-    process.exit(0);
+    return null;
   }
   mostrar(plan);
-  if (ACCION === "prueba") {
-    console.log("MODO PRUEBA: no se publicó nada.");
-  } else if (!hayTelegram) {
-    console.log("Telegram no está configurado: no mando vista previa.");
-  } else {
-    const mensaje = await enviarVistaPrevia(plan, HORA);
-    guardarJSON(PENDIENTE, { ...plan, creado: Math.floor(Date.now() / 1000), mensaje });
+  const creado = Math.floor(Date.now() / 1000);
+  let mensaje = null;
+  if (hayTelegram) {
+    mensaje = await enviarVistaPrevia(plan, HORARIOS[tipo].publica);
     console.log("📲 Vista previa enviada a Telegram.");
   }
-  process.exit(0);
+  guardarJSON(`pendiente-${tipo}.json`, { ...plan, creado, mensaje });
+  return creado;
 }
 
-// ACCION === "publicar"
-if (!process.env.IG_TOKEN) throw new Error("Falta el secret IG_TOKEN");
-let pendiente = leerJSON(PENDIENTE, null);
-if (pendiente && Date.now() / 1000 - pendiente.creado > 20 * 3600) pendiente = null; // vista previa vieja
-const plan = pendiente || (TIPO === "educativo" ? planEducativo() : await planReloj());
-if (!plan) {
-  console.log("No hay nada para publicar.");
-  process.exit(0);
+// Devuelve "publicado" | "cancelado" | "nada"
+async function hacerPublicacion(tipo) {
+  const archivo = `pendiente-${tipo}.json`;
+  let pendiente = leerJSON(archivo, null);
+  if (pendiente && Date.now() / 1000 - pendiente.creado > 20 * 3600) pendiente = null;
+  const plan = pendiente || (await armarPlan(tipo));
+  if (!plan) return "nada";
+  mostrar(plan);
+  if (pendiente && (await fueCancelado(pendiente))) {
+    marcarHecho(plan);
+    guardarJSON(archivo, null);
+    await avisar(`❌ Listo, NO publiqué: ${plan.titulo}. Mañana sale el siguiente.`);
+    return "cancelado";
+  }
+  await chequearToken();
+  await renovarToken();
+  const postId = await publicarPlan(plan);
+  marcarHecho(plan);
+  guardarJSON(archivo, null);
+  const link = await enlace(postId);
+  console.log(`✅ Publicado en Instagram (id ${postId}) ${link}`);
+  await avisar(`✅ Publicado: ${plan.titulo}\n${link}`);
+  return "publicado";
 }
-mostrar(plan);
 
-if (pendiente && (await fueCancelado(pendiente))) {
-  console.log("❌ Cancelado desde Telegram: no se publica.");
-  marcarHecho(plan); // para que mañana salga otro
-  if (existsSync(PENDIENTE)) writeFileSync(PENDIENTE, "null\n");
-  await avisar(`❌ Listo, NO publiqué: ${plan.titulo}. Mañana sale el siguiente.`);
-  process.exit(0);
+if (ACCION === "auto") {
+  const { fecha, hora } = ahoraBA();
+  let estado = leerJSON(ESTADO, {});
+  if (estado.fecha !== fecha) estado = { fecha };
+  console.log(`Buenos Aires: ${fecha} ${hora}`);
+
+  for (const tipo of ["educativo", "reloj"]) {
+    const e = estado[tipo] || {};
+    const h = HORARIOS[tipo];
+    try {
+      if (e.listo || hora >= ULTIMA_HORA) continue;
+      if (!e.previa && hora >= h.previa) {
+        e.previa = await hacerVistaPrevia(tipo);
+        if (!e.previa) e.listo = true; // no hay contenido
+      } else if (e.previa && hora >= h.publica && Date.now() / 1000 - e.previa >= ESPERA_MIN * 60) {
+        e.resultado = await hacerPublicacion(tipo);
+        e.listo = true;
+      } else {
+        console.log(`${tipo}: todavía no toca (previa ${h.previa}, publica ${h.publica}).`);
+      }
+    } catch (err) {
+      console.log(`⚠️ ${tipo}: ${err.message}`);
+      e.errores = (e.errores || 0) + 1;
+      if (e.errores >= 3) {
+        e.listo = true;
+        await avisar(`⚠️ No pude publicar el ${tipo} de hoy después de 3 intentos: ${err.message}`);
+      }
+    }
+    estado[tipo] = e;
+    guardarJSON(ESTADO, estado);
+  }
+} else {
+  const tipo = process.env.TIPO === "educativo" ? "educativo" : "reloj";
+  if (ACCION === "prueba") {
+    const plan = await armarPlan(tipo);
+    if (plan) mostrar(plan);
+    console.log("MODO PRUEBA: no se publicó nada.");
+  } else if (ACCION === "vista_previa") {
+    await hacerVistaPrevia(tipo);
+  } else {
+    await hacerPublicacion(tipo);
+  }
 }
-
-await renovarToken();
-const postId = await publicarPlan(plan);
-marcarHecho(plan);
-if (existsSync(PENDIENTE)) writeFileSync(PENDIENTE, "null\n");
-const link = await enlace(postId);
-console.log(`✅ Publicado en Instagram (id ${postId}) ${link}`);
-await avisar(`✅ Publicado: ${plan.titulo}\n${link}`);
