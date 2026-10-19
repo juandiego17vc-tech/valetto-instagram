@@ -6,6 +6,8 @@ name: Publicar en Instagram
 on:
   schedule:
     - cron: "*/15 * * * *"   # revisa cada 15 min si toca vista previa o publicar
+  push:
+    paths: ["disparar.txt"]   # tocar este archivo hace correr el sistema al instante
   workflow_dispatch:
     inputs:
       tipo:
