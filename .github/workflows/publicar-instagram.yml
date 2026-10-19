@@ -42,7 +42,7 @@ jobs:
         env:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '8634273911' }}
           TIPO: ${{ github.event_name == 'workflow_dispatch' && inputs.tipo || ((github.event.schedule == '52 13 * * *' || github.event.schedule == '52 14 * * *') && 'educativo' || 'reloj') }}
           ACCION: ${{ github.event_name == 'workflow_dispatch' && inputs.accion || ((github.event.schedule == '52 13 * * *' || github.event.schedule == '52 20 * * *') && 'vista_previa' || 'publicar') }}
 
