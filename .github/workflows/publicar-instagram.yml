@@ -1,0 +1,47 @@
+name: Publicar en Instagram
+
+on:
+  schedule:
+    - cron: "52 14 * * *"   # 11:52 hora Argentina -> contenido educativo
+    - cron: "52 21 * * *"   # 18:52 hora Argentina -> reloj del día
+  workflow_dispatch:         # botón para correrlo a mano
+    inputs:
+      tipo:
+        description: "¿Qué publicar?"
+        type: choice
+        options: [reloj, educativo]
+        default: reloj
+      prueba:
+        description: "Modo prueba (muestra qué publicaría, sin publicar)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency: publicar-instagram
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Publicar
+        run: node publicar.mjs
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          TIPO: ${{ github.event_name == 'workflow_dispatch' && inputs.tipo || (github.event.schedule == '52 14 * * *' && 'educativo' || 'reloj') }}
+          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.prueba) && '1' || '0' }}
+
+      - name: Guardar historial (para no repetir)
+        run: |
+          git config user.name "valetto-bot"
+          git config user.email "valetto-bot@users.noreply.github.com"
+          git add posted.json posted-edu.json
+          git diff --cached --quiet || (git commit -m "Publicación $(date +%F)" && git push)
