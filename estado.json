@@ -2,7 +2,9 @@
   "fecha": "2026-10-20",
   "educativo": {
     "previa": 1792511286,
-    "errores": 1
+    "errores": 1,
+    "resultado": "manual",
+    "listo": true
   },
   "reloj": {}
 }
