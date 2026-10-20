@@ -426,6 +426,27 @@ async function chequearToken() {
   }
 }
 
+async function tokenAnda() {
+  if (!process.env.IG_TOKEN) return false;
+  try { await graph("me", { fields: "user_id" }, "GET"); return true; }
+  catch (e) { console.log("Token/API no disponible:", e.message); return false; }
+}
+
+// Cuando Instagram no deja publicar por API: manda todo listo para subir a mano
+async function enviarParaPublicarAMano(plan) {
+  if (!hayTelegram) return;
+  await tg("sendMessage", {
+    chat_id: TG_CHAT,
+    text: `📤 PUBLICALO VOS — ${plan.titulo}\n\nInstagram no me deja publicar automático (Meta tiene bloqueada la cuenta de desarrollador). Abajo van las imágenes en orden y el texto para copiar y pegar.`,
+  });
+  if (plan.imagenes.length === 1) {
+    await tg("sendPhoto", { chat_id: TG_CHAT, photo: plan.imagenes[0] });
+  } else {
+    await tg("sendMediaGroup", { chat_id: TG_CHAT, media: plan.imagenes.map((url) => ({ type: "photo", media: url })) });
+  }
+  await tg("sendMessage", { chat_id: TG_CHAT, text: plan.caption });
+}
+
 const armarPlan = async (tipo) => (tipo === "educativo" ? planEducativo() : await planReloj());
 
 async function hacerVistaPrevia(tipo) {
@@ -435,6 +456,11 @@ async function hacerVistaPrevia(tipo) {
     return null;
   }
   mostrar(plan);
+  if (process.env.IG_TOKEN && !(await tokenAnda())) {
+    await enviarParaPublicarAMano(plan);
+    marcarHecho(plan);
+    return "manual";
+  }
   const creado = Math.floor(Date.now() / 1000);
   let mensaje = null;
   if (hayTelegram) {
@@ -459,9 +485,23 @@ async function hacerPublicacion(tipo) {
     await avisar(`❌ Listo, NO publiqué: ${plan.titulo}. Mañana sale el siguiente.`);
     return "cancelado";
   }
-  await chequearToken();
+  if (!(await tokenAnda())) {
+    await enviarParaPublicarAMano(plan);
+    marcarHecho(plan);
+    guardarJSON(archivo, null);
+    return "manual";
+  }
   await renovarToken();
-  const postId = await publicarPlan(plan);
+  let postId;
+  try {
+    postId = await publicarPlan(plan);
+  } catch (e) {
+    console.log("Falló la publicación:", e.message);
+    await enviarParaPublicarAMano(plan);
+    marcarHecho(plan);
+    guardarJSON(archivo, null);
+    return "manual";
+  }
   marcarHecho(plan);
   guardarJSON(archivo, null);
   const link = await enlace(postId);
@@ -482,8 +522,9 @@ if (ACCION === "auto") {
     try {
       if (e.listo || hora >= ULTIMA_HORA) continue;
       if (!e.previa && hora >= h.previa) {
-        e.previa = await hacerVistaPrevia(tipo);
-        if (!e.previa) e.listo = true; // no hay contenido
+        const r = await hacerVistaPrevia(tipo);
+        if (r === "manual") { e.previa = Math.floor(Date.now() / 1000); e.resultado = "manual"; e.listo = true; }
+        else { e.previa = r; if (!r) e.listo = true; } // sin contenido -> listo
       } else if (e.previa && hora >= h.publica && Date.now() / 1000 - e.previa >= ESPERA_MIN * 60) {
         e.resultado = await hacerPublicacion(tipo);
         e.listo = true;
