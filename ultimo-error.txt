@@ -1,1 +1,1 @@
-2026-10-21T20:29:01.928Z probar_buffer: Buffer: no encontré un canal de Instagram conectado
+2026-10-21T20:29:34.946Z probar_buffer: Buffer: no encontré un canal de Instagram conectado (organizaciones: 1; canales: ninguno)
