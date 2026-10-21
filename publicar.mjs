@@ -382,6 +382,63 @@ async function renovarToken() {
   }
 }
 
+
+// ---------- Buffer (plan B si Meta bloquea la API directa) ----------
+
+const BUFFER_TOKEN = process.env.BUFFER_TOKEN;
+const hayBuffer = Boolean(BUFFER_TOKEN);
+
+async function buffer(query, variables = {}) {
+  const r = await fetch("https://api.buffer.com", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${BUFFER_TOKEN}` },
+    body: JSON.stringify({ query, variables }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (d.errors?.length) throw new Error("Buffer: " + d.errors.map((e) => e.message).join("; "));
+  if (!r.ok) throw new Error(`Buffer HTTP ${r.status}`);
+  return d.data;
+}
+
+async function canalInstagramBuffer() {
+  if (process.env.BUFFER_CHANNEL_ID) return process.env.BUFFER_CHANNEL_ID;
+  const { account } = await buffer(`query { account { organizations { id name } } }`);
+  for (const org of account.organizations) {
+    const { channels } = await buffer(
+      `query($org: OrganizationId!) { channels(input: { organizationId: $org }) { id name service } }`,
+      { org: org.id });
+    const ig = channels.find((c) => c.service === "instagram");
+    if (ig) { console.log(`Buffer: canal Instagram "${ig.name}" (${ig.id})`); return ig.id; }
+  }
+  throw new Error("Buffer: no encontré un canal de Instagram conectado");
+}
+
+async function publicarPorBuffer(plan) {
+  const channelId = await canalInstagramBuffer();
+  const assets = plan.imagenes.map((url) => ({ image: { url } }));
+  const intentos = [
+    { mode: "shareNow", metadata: { instagram: { type: "post", shouldShareToFeed: true } } },
+    { mode: "shareNow" },
+    { mode: "customScheduled", dueAt: new Date(Date.now() + 2 * 60000).toISOString() },
+  ];
+  let ultimo;
+  for (const extra of intentos) {
+    const input = { text: plan.caption, channelId, schedulingType: "automatic", assets, ...extra };
+    try {
+      const d = await buffer(
+        `mutation($input: CreatePostInput!) { createPost(input: $input) {
+           ... on PostActionSuccess { post { id dueAt } }
+           ... on MutationError { message } } }`,
+        { input });
+      const res = d.createPost;
+      if (res?.post) { console.log("Buffer OK:", JSON.stringify(res.post), "modo", extra.mode); return res.post.id; }
+      ultimo = new Error("Buffer: " + (res?.message || "respuesta inesperada"));
+    } catch (e) { ultimo = e; }
+    console.log("Intento Buffer falló:", ultimo.message);
+  }
+  throw ultimo;
+}
+
 // ---------- Programa principal ----------
 // ACCION:
 //   "auto"         -> (lo que corre cada 15 min) decide solo si toca vista previa o publicar
@@ -456,7 +513,7 @@ async function hacerVistaPrevia(tipo) {
     return null;
   }
   mostrar(plan);
-  if (process.env.IG_TOKEN && !(await tokenAnda())) {
+  if (process.env.IG_TOKEN && !hayBuffer && !(await tokenAnda())) {
     await enviarParaPublicarAMano(plan);
     marcarHecho(plan);
     return "manual";
@@ -486,6 +543,18 @@ async function hacerPublicacion(tipo) {
     return "cancelado";
   }
   if (!(await tokenAnda())) {
+    if (hayBuffer) {
+      try {
+        await publicarPorBuffer(plan);
+        marcarHecho(plan);
+        guardarJSON(archivo, null);
+        await avisar(`✅ Publicado (vía Buffer): ${plan.titulo}`);
+        return "publicado-buffer";
+      } catch (e) {
+        console.log("Buffer falló:", e.message);
+        await avisar(`⚠️ Buffer no pudo publicar (${e.message}). Te lo mando para que lo subas vos.`);
+      }
+    }
     await enviarParaPublicarAMano(plan);
     marcarHecho(plan);
     guardarJSON(archivo, null);
@@ -544,7 +613,10 @@ if (ACCION === "auto") {
   }
 } else {
   const tipo = process.env.TIPO === "educativo" ? "educativo" : "reloj";
-  if (ACCION === "prueba") {
+  if (ACCION === "probar_buffer") {
+    await canalInstagramBuffer();
+    await avisar("🔌 Buffer conectado OK con Instagram.");
+  } else if (ACCION === "prueba") {
     const plan = await armarPlan(tipo);
     if (plan) mostrar(plan);
     console.log("MODO PRUEBA: no se publicó nada.");

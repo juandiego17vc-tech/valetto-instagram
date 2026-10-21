@@ -18,7 +18,7 @@ on:
       accion:
         description: "¿Qué hacer?"
         type: choice
-        options: [prueba, auto, vista_previa, publicar]
+        options: [prueba, auto, vista_previa, publicar, probar_buffer]
         default: prueba
 
 permissions:
@@ -41,6 +41,7 @@ jobs:
         env:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          BUFFER_TOKEN: ${{ secrets.BUFFER_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || '8634273911' }}
           TIPO: ${{ inputs.tipo || 'reloj' }}
           ACCION: ${{ github.event_name == 'workflow_dispatch' && inputs.accion || 'auto' }}
