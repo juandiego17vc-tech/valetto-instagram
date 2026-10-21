@@ -36,8 +36,19 @@ jobs:
         with:
           node-version: 20
 
+      - name: Leer acción pedida (si se disparó tocando disparar.txt)
+        if: github.event_name == 'push'
+        run: |
+          A=$(head -1 disparar.txt | awk '{print $1}')
+          case "$A" in prueba|vista_previa|publicar|probar_buffer) echo "ACCION_PUSH=$A" >> $GITHUB_ENV ;; esac
+          T=$(head -1 disparar.txt | awk '{print $2}')
+          case "$T" in reloj|educativo) echo "TIPO_PUSH=$T" >> $GITHUB_ENV ;; esac
+
       - name: Correr
-        run: node publicar.mjs
+        run: |
+          if [ -n "$ACCION_PUSH" ]; then export ACCION="$ACCION_PUSH"; fi
+          if [ -n "$TIPO_PUSH" ]; then export TIPO="$TIPO_PUSH"; fi
+          node publicar.mjs
         env:
           IG_TOKEN: ${{ secrets.IG_TOKEN }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
