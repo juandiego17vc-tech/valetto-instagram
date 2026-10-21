@@ -5,5 +5,7 @@
     "resultado": "manual",
     "listo": true
   },
-  "reloj": {}
+  "reloj": {
+    "previa": 1792616090
+  }
 }
