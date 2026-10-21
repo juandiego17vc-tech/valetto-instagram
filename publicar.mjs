@@ -403,14 +403,17 @@ async function buffer(query, variables = {}) {
 async function canalInstagramBuffer() {
   if (process.env.BUFFER_CHANNEL_ID) return process.env.BUFFER_CHANNEL_ID;
   const { account } = await buffer(`query { account { organizations { id name } } }`);
+  const vistos = [];
   for (const org of account.organizations) {
     const { channels } = await buffer(
       `query($org: OrganizationId!) { channels(input: { organizationId: $org }) { id name service } }`,
       { org: org.id });
-    const ig = channels.find((c) => c.service === "instagram");
+    console.log(`Buffer org "${org.name}": canales ${JSON.stringify(channels.map((c) => [c.name, c.service]))}`);
+    vistos.push(...channels.map((c) => `${c.name} (${c.service})`));
+    const ig = channels.find((c) => /instagram/i.test(c.service));
     if (ig) { console.log(`Buffer: canal Instagram "${ig.name}" (${ig.id})`); return ig.id; }
   }
-  throw new Error("Buffer: no encontré un canal de Instagram conectado");
+  throw new Error(`Buffer: no encontré un canal de Instagram conectado (organizaciones: ${account.organizations.length}; canales: ${vistos.join(", ") || "ninguno"})`);
 }
 
 async function publicarPorBuffer(plan) {
