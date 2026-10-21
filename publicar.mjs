@@ -8,7 +8,7 @@
 //   DRY_RUN=1   -> modo prueba: muestra qué publicaría, pero NO publica
 //   OVERLAY=0   -> publica la foto sola, sin la franja con nombre y precio
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
 
 const CATALOGO = "https://valetto.com.ar/catalogo";
 const GRAPH = `https://graph.instagram.com/${process.env.GRAPH_VERSION || "v23.0"}`;
@@ -355,6 +355,7 @@ async function fueCancelado(pendiente) {
 }
 
 async function avisar(texto) {
+  try { appendFileSync("registro.txt", `${new Date().toISOString()} ${texto.replace(/\n/g, " | ")}\n`); } catch {}
   if (!hayTelegram) return;
   try { await tg("sendMessage", { chat_id: TG_CHAT, text: texto }); } catch (e) { console.log(e.message); }
 }
@@ -436,6 +437,7 @@ async function publicarPorBuffer(plan) {
       const res = d.createPost;
       if (res?.post) { console.log("Buffer OK:", JSON.stringify(res.post), "modo", extra.mode); return res.post.id; }
       ultimo = new Error("Buffer: " + (res?.message || "respuesta inesperada"));
+      console.log("Respuesta Buffer:", JSON.stringify(d));
     } catch (e) { ultimo = e; }
     console.log("Intento Buffer falló:", ultimo.message);
   }

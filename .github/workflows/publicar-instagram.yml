@@ -61,5 +61,5 @@ jobs:
         run: |
           git config user.name "valetto-bot"
           git config user.email "valetto-bot@users.noreply.github.com"
-          for f in ultimo-error.txt estado.json posted.json posted-edu.json pendiente-reloj.json pendiente-educativo.json; do if [ -f "$f" ]; then git add "$f"; fi; done
+          for f in registro.txt ultimo-error.txt estado.json posted.json posted-edu.json pendiente-reloj.json pendiente-educativo.json; do if [ -f "$f" ]; then git add "$f"; fi; done
           git diff --cached --quiet || (git commit -m "Publicación $(date +%F)" && git pull --rebase && git push)
