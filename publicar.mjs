@@ -612,17 +612,24 @@ if (ACCION === "auto") {
     guardarJSON(ESTADO, estado);
   }
 } else {
-  const tipo = process.env.TIPO === "educativo" ? "educativo" : "reloj";
-  if (ACCION === "probar_buffer") {
-    await canalInstagramBuffer();
-    await avisar("🔌 Buffer conectado OK con Instagram.");
-  } else if (ACCION === "prueba") {
-    const plan = await armarPlan(tipo);
-    if (plan) mostrar(plan);
-    console.log("MODO PRUEBA: no se publicó nada.");
-  } else if (ACCION === "vista_previa") {
-    await hacerVistaPrevia(tipo);
-  } else {
-    await hacerPublicacion(tipo);
+  try {
+    const tipo = process.env.TIPO === "educativo" ? "educativo" : "reloj";
+    if (ACCION === "probar_buffer") {
+      await canalInstagramBuffer();
+      await avisar("🔌 Buffer conectado OK con Instagram.");
+    } else if (ACCION === "prueba") {
+      const plan = await armarPlan(tipo);
+      if (plan) mostrar(plan);
+      console.log("MODO PRUEBA: no se publicó nada.");
+    } else if (ACCION === "vista_previa") {
+      await hacerVistaPrevia(tipo);
+    } else {
+      await hacerPublicacion(tipo);
+    }
+
+  } catch (err) {
+    console.log("ERROR:", err.message);
+    writeFileSync("ultimo-error.txt", `${new Date().toISOString()} ${ACCION}: ${err.message}\n`);
+    await avisar(`⚠️ Falló "${ACCION}": ${err.message}`);
   }
 }
