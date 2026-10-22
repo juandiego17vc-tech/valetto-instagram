@@ -1,1 +1,15 @@
-null
+{
+  "tipo": "educativo",
+  "clave": 4,
+  "titulo": "Educativo #4: Un reloj que nunca necesita cambio de pila. ¿Cómo funciona?",
+  "imagenes": [
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/04-1.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/04-2.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/04-3.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/04-4.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/04-5.jpg"
+  ],
+  "caption": "Eco-Drive: la practicidad del cuarzo, sin cambiar pilas cada tanto ☀️\n\nGuardalo para tenerlo a mano y compartilo con quien lo necesite.\n⌚ Relojes originales con garantía · valetto.com.ar (link en la bio)\n👉 WhatsApp: 11 6931-2299\n\n#relojes #relojesoriginales #relojeria #watchtips #buenosaires #valetto",
+  "creado": 1792677779,
+  "mensaje": 48
+}
