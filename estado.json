@@ -5,5 +5,7 @@
     "resultado": "publicado-buffer",
     "listo": true
   },
-  "reloj": {}
+  "reloj": {
+    "previa": 1792875780
+  }
 }
