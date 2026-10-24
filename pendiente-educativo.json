@@ -1,1 +1,15 @@
-null
+{
+  "tipo": "educativo",
+  "clave": 6,
+  "titulo": "Educativo #6: Cronógrafo y cronómetro NO son lo mismo",
+  "imagenes": [
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/06-1.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/06-2.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/06-3.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/06-4.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/06-5.jpg"
+  ],
+  "caption": "Ahora cuando alguien los confunda, ya sabés qué decirle 😉\n\nGuardalo para tenerlo a mano y compartilo con quien lo necesite.\n⌚ Relojes originales con garantía · valetto.com.ar (link en la bio)\n👉 WhatsApp: 11 6931-2299\n\n#relojes #relojesoriginales #relojeria #watchtips #buenosaires #valetto",
+  "creado": 1792850577,
+  "mensaje": 68
+}
