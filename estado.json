@@ -1,5 +1,7 @@
 {
   "fecha": "2026-10-26",
-  "educativo": {},
+  "educativo": {
+    "previa": 1793023075
+  },
   "reloj": {}
 }
