@@ -1,13 +1,5 @@
 {
-  "fecha": "2026-10-28",
-  "educativo": {
-    "previa": 1793196180,
-    "resultado": "publicado-buffer",
-    "listo": true
-  },
-  "reloj": {
-    "previa": 1793221387,
-    "resultado": "publicado-buffer",
-    "listo": true
-  }
+  "fecha": "2026-10-29",
+  "educativo": {},
+  "reloj": {}
 }
