@@ -15,3 +15,4 @@
 2026-10-28T22:03:10.163Z ✅ Publicado (vía Buffer): Reloj del día: Citizen Quartz Chronograph AN8191-59E
 2026-10-29T15:03:10.139Z ✅ Publicado (vía Buffer): Educativo #11: ¿Por qué el bisel de un reloj de buceo gira para un solo lado?
 2026-10-29T22:03:11.504Z ✅ Publicado (vía Buffer): Reloj del día: Orient Sol y Luna Dial Beige Cuero Marron
+2026-10-30T15:03:12.603Z ✅ Publicado (vía Buffer): Educativo #12: Segundero que salta vs segundero que barre
