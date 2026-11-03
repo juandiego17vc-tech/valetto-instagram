@@ -1,1 +1,15 @@
-null
+{
+  "tipo": "educativo",
+  "clave": 16,
+  "titulo": "Educativo #16: ¿Cuánto dura la pila de un reloj?",
+  "imagenes": [
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/16-1.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/16-2.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/16-3.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/16-4.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/16-5.jpg"
+  ],
+  "caption": "Un cambio de pila a tiempo te ahorra un problema grande 🔋\n\nGuardalo para tenerlo a mano y compartilo con quien lo necesite.\n⌚ Relojes originales con garantía · valetto.com.ar (link en la bio)\n👉 WhatsApp: 11 6931-2299\n\n#relojes #relojesoriginales #relojeria #watchtips #buenosaires #valetto",
+  "creado": 1793715478,
+  "mensaje": 173
+}
