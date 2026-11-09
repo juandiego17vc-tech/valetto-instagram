@@ -1,1 +1,15 @@
-null
+{
+  "tipo": "educativo",
+  "clave": 22,
+  "titulo": "Educativo #22: El reloj que cambió la historia de la relojería",
+  "imagenes": [
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/22-1.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/22-2.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/22-3.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/22-4.jpg",
+    "https://raw.githubusercontent.com/juandiego17vc-tech/valetto-instagram/main/contenido/imagenes/22-5.jpg"
+  ],
+  "caption": "Cada vez que mirás un reloj de cuarzo, estás viendo la herencia de 1969 ⏳\n\nGuardalo para tenerlo a mano y compartilo con quien lo necesite.\n⌚ Relojes originales con garantía · valetto.com.ar (link en la bio)\n👉 WhatsApp: 11 6931-2299\n\n#relojes #relojesoriginales #relojeria #watchtips #buenosaires #valetto",
+  "creado": 1794232978,
+  "mensaje": 233
+}
