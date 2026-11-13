@@ -1,5 +1,7 @@
 {
   "fecha": "2026-11-13",
-  "educativo": {},
+  "educativo": {
+    "errores": 1
+  },
   "reloj": {}
 }
