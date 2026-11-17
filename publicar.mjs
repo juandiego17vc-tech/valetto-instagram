@@ -140,7 +140,14 @@ function elegir(relojes) {
 const textoCloudinary = (t) =>
   encodeURIComponent(t).replace(/%2C/g, "%252C").replace(/%2F/g, "%252F");
 
-function armarImagen(reloj, conTexto, fuente = "Montserrat") {
+// Fondos generados con IA (Cloudinary reemplaza solo el fondo; el reloj queda intacto)
+const FONDOS_IA = [
+  "watch resting on dark navy marble surface with luxury studio lighting and soft reflections",
+  "watch lying on a dark walnut wood desk next to a leather notebook with warm cinematic window light and soft shadows",
+  "watch displayed on black leather with dramatic spotlight and deep shadows like a luxury magazine ad",
+];
+
+function armarImagen(reloj, conTexto, fuente = "Montserrat", fondoIA = null) {
   // Formato 4:5 (1080x1350), JPG (Instagram solo acepta JPG).
   // Con texto: foto arriba + franja navy (#0B1929, color de la web) con nombre y precio.
   if (!conTexto) {
@@ -150,6 +157,7 @@ function armarImagen(reloj, conTexto, fuente = "Montserrat") {
   const nombre = reloj.titulo.length > 34 ? reloj.titulo.slice(0, 32) + "…" : reloj.titulo;
   const f = (size, extra) => `${fuente}_${size}_${extra}`;
   const tx = [
+    ...(fondoIA ? [`e_gen_background_replace:prompt_${encodeURIComponent(fondoIA)}`] : []),
     "c_fill,g_center,w_1080,h_1110",
     "c_pad,w_1080,h_1350,g_north,b_rgb:0b1929",
     `l_text:${f(42, "bold_italic")}:${textoCloudinary(nombre.toUpperCase())},co_white/fl_layer_apply,g_south,y_150`,
@@ -161,12 +169,18 @@ function armarImagen(reloj, conTexto, fuente = "Montserrat") {
 }
 
 async function imagenFunciona(url) {
-  try {
-    const r = await fetch(url);
-    return r.ok && (r.headers.get("content-type") || "").includes("image");
-  } catch {
-    return false;
+  // Las transformaciones con IA tardan: Cloudinary responde 423 mientras procesa
+  for (let i = 0; i < 15; i++) {
+    try {
+      const r = await fetch(url);
+      if (r.status === 423) { await new Promise((ok) => setTimeout(ok, 8000)); continue; }
+      if (!r.ok) console.log("Cloudinary:", r.status, r.headers.get("x-cld-error") || "");
+      return r.ok && (r.headers.get("content-type") || "").includes("image");
+    } catch {
+      return false;
+    }
   }
+  return false;
 }
 
 // ---------- 4. Texto del posteo ----------
@@ -265,15 +279,23 @@ const leerJSON = (f, def) => (existsSync(f) ? JSON.parse(readFileSync(f, "utf8")
 const guardarJSON = (f, v) => writeFileSync(f, JSON.stringify(v, null, 2) + "\n");
 
 function planEducativo() {
-  const posts = leerJSON("contenido/educativo.json", []);
+  const posts = [
+    ...leerJSON("contenido/educativo.json", []),
+    ...leerJSON("contenido/educativo-2.json", []),
+  ].sort((a, b) => a.n - b.n);
   const hechos = leerJSON(HIST_EDU, []);
   const post = posts.find((p) => !hechos.includes(p.n));
   if (!post) return null;
   const repo = process.env.GITHUB_REPOSITORY;
   const nn = String(post.n).padStart(2, "0");
   const total = post.slides.length + 2; // portada + slides + cierre
+  // Placas nuevas (foto profesional) si existen; si no, las viejas
+  const carpeta = existsSync(`contenido/generadas/${nn}-1.jpg`) ? "generadas" : "imagenes";
+  if (carpeta === "imagenes" && !existsSync(`contenido/imagenes/${nn}-1.jpg`)) {
+    throw new Error(`Faltan las placas del educativo #${post.n}`);
+  }
   const imagenes = Array.from({ length: total }, (_, k) =>
-    `https://raw.githubusercontent.com/${repo}/main/contenido/imagenes/${nn}-${k + 1}.jpg`);
+    `https://raw.githubusercontent.com/${repo}/main/contenido/${carpeta}/${nn}-${k + 1}.jpg`);
   const caption = [
     post.caption,
     "",
@@ -291,7 +313,9 @@ async function planReloj() {
   console.log(`Relojes disponibles encontrados: ${relojes.length}`);
   if (relojes.length === 0) throw new Error("No encontré relojes disponibles en el catálogo");
   const { reloj } = elegir(relojes);
-  let imagen = armarImagen(reloj, OVERLAY);
+  const fondo = FONDOS_IA[Number(String(reloj.id || reloj.clave).replace(/\D/g, "") || 0) % FONDOS_IA.length];
+  let imagen = armarImagen(reloj, OVERLAY, "Montserrat", OVERLAY ? fondo : null);
+  if (OVERLAY && !(await imagenFunciona(imagen))) { console.log("Fondo IA no disponible, uso la foto original."); imagen = armarImagen(reloj, OVERLAY); }
   if (OVERLAY && !(await imagenFunciona(imagen))) imagen = armarImagen(reloj, true, "Arial");
   if (OVERLAY && !(await imagenFunciona(imagen))) imagen = armarImagen(reloj, false);
   return { tipo: "reloj", clave: reloj.clave, titulo: `Reloj del día: ${reloj.titulo}`, imagenes: [imagen], caption: armarCaption(reloj) };

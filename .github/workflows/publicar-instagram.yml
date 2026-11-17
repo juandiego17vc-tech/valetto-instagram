@@ -36,6 +36,17 @@ jobs:
         with:
           node-version: 20
 
+      - name: Preparar placas del próximo educativo (fotos profesionales)
+        run: |
+          pip install --quiet --break-system-packages pillow || pip install --quiet pillow
+          python3 generar_educativo.py
+          git config user.name "valetto-bot"
+          git config user.email "valetto-bot@users.noreply.github.com"
+          git add contenido/generadas 2>/dev/null || true
+          git diff --cached --quiet || (git commit -m "Placas educativo" && git pull --rebase && git push)
+        env:
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+
       - name: Leer acción pedida (si se disparó tocando disparar.txt)
         if: github.event_name == 'push'
         run: |
