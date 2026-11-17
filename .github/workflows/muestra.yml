@@ -1,0 +1,25 @@
+name: Muestra de educativo
+
+# Escribir en muestra.txt: "<número> <url de foto>" y subirlo. Genera las placas en contenido/muestras/.
+on:
+  push:
+    paths: ["muestra.txt"]
+
+permissions:
+  contents: write
+
+jobs:
+  muestra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar muestra
+        run: |
+          pip install --quiet --break-system-packages pillow || pip install --quiet pillow
+          N=$(head -1 muestra.txt | awk '{print $1}')
+          U=$(head -1 muestra.txt | awk '{print $2}')
+          SALIDA=muestras FOTO_URL="$U" python3 generar_educativo.py "$N" --force
+          git config user.name "valetto-bot"
+          git config user.email "valetto-bot@users.noreply.github.com"
+          git add contenido/muestras
+          git diff --cached --quiet || (git commit -m "Muestra educativo $N" && git pull --rebase && git push)

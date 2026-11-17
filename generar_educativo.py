@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 
 W, H = 1080, 1350
 BASE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(BASE, "contenido", "generadas")
+OUT = os.path.join(BASE, "contenido", os.environ.get("SALIDA", "generadas"))
 NAVY = (11, 25, 41)
 STEEL = (122, 148, 168)
 STEEL_LIGHT = (200, 205, 212)
@@ -56,6 +56,10 @@ def todos_los_posts():
 
 # ---------- foto ----------
 def buscar_foto(query, usadas):
+    url = os.environ.get("FOTO_URL")  # para muestras: una foto puntual
+    if url:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"}), timeout=60) as r:
+            return Image.open(io.BytesIO(r.read())).convert("RGB"), {"id": 0, "user": "muestra", "pageURL": url}
     key = os.environ.get("PIXABAY_KEY")
     if not key or not query:
         return None
@@ -257,7 +261,7 @@ def generar(post):
             "foto": {"id": hit["id"], "autor": hit.get("user"), "pagina": hit.get("pageURL")} if hit else None}
     with open(os.path.join(OUT, f"{nn}.json"), "w", encoding="utf-8") as f:
         json.dump(info, f, ensure_ascii=False, indent=2)
-    if hit:
+    if hit and hit["id"]:
         with open(os.path.join(OUT, "usadas.json"), "w") as f:
             json.dump(usadas + [hit["id"]], f)
     print(f"Placas del educativo #{post['n']} listas ({total}) · foto: {'Pixabay ' + str(hit['id']) if hit else 'fondo de marca'}")
