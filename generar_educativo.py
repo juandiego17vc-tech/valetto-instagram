@@ -75,7 +75,9 @@ def buscar_foto(query, usadas):
             "key": key, "q": query, "image_type": "photo", "orientation": orient,
             "safesearch": "true", "per_page": 40, "min_width": 1080, "order": "popular"})
         try:
-            with urllib.request.urlopen(f"https://pixabay.com/api/?{params}", timeout=30) as r:
+            req = urllib.request.Request(f"https://pixabay.com/api/?{params}",
+                                         headers={"User-Agent": "Mozilla/5.0 (valetto-instagram bot)", "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as r:
                 hits = json.load(r).get("hits", [])
         except Exception as e:
             print("Pixabay error:", e)
@@ -88,7 +90,7 @@ def buscar_foto(query, usadas):
         if buenos:
             h = random.choice(buenos[:6])  # una de las más populares, variando
             try:
-                with urllib.request.urlopen(h["largeImageURL"], timeout=60) as r:
+                with urllib.request.urlopen(urllib.request.Request(h["largeImageURL"], headers={"User-Agent": "Mozilla/5.0"}), timeout=60) as r:
                     img = Image.open(io.BytesIO(r.read())).convert("RGB")
                 print(f"Foto Pixabay {h['id']} de {h.get('user')} · {h.get('tags')}")
                 return img, h
