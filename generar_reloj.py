@@ -34,7 +34,11 @@ def portada(foto, r, total):
     d.text((W - 90 - d.textlength(estado, font=fe), 100), estado, font=fe, fill=WHITE)
     marca = (r.get("marca") or "").upper()
     modelo = r["titulo"][len(r.get("marca") or ""):].strip() or r["titulo"]
-    f, lineas = g.titulo_ajustado(d, modelo.upper(), 70, W - 180, 3)
+    ref = (r.get("ref") or "").strip()
+    if ref and ref.lower() in modelo.lower():  # la referencia va a la ficha, no al título
+        i = modelo.lower().index(ref.lower())
+        modelo = (modelo[:i] + modelo[i + len(ref):]).strip(" -·.,") or modelo
+    f, lineas = g.titulo_ajustado(d, modelo.upper(), 66, W - 180, 2)
     fp = g.mont(96, 900)
     alto = 40 + len(lineas) * f.size * 1.05 + 30 + fp.size + 60
     y = H - 140 - alto
@@ -57,13 +61,13 @@ def ficha(fondo, r, total):
     y = g.escribir(img, lineas, f, 170, WHITE)
     d = ImageDraw.Draw(img)
     d.rectangle((90, y + 20, 170, y + 28), fill=STEEL)
-    datos = [("Movimiento", r.get("movimiento")), ("Diámetro", r.get("diametro")),
+    datos = [("Referencia", r.get("ref")), ("Movimiento", r.get("movimiento")), ("Diámetro", r.get("diametro")),
              ("Resistencia al agua", r.get("agua")), ("Cristal", r.get("cristal")),
              ("Malla", r.get("correa")), ("Caja", r.get("caja"))]
     datos = [(k, may(v)) for k, v in datos if v]
-    fk, fv = g.outfit(30, 500), g.outfit(46, 400)
+    fk, fv = g.outfit(28, 500), g.outfit(42, 400)
     y += 90
-    for k, v in datos[:6]:
+    for k, v in datos[:7]:
         d.text((90, y), k.upper(), font=fk, fill=STEEL)
         lineas = g.envolver(d, v, fv, W - 180)[:2]
         yy = y + 42
@@ -77,7 +81,7 @@ def ficha(fondo, r, total):
 
 
 def compra(foto2, r, total):
-    img = g.degradado(g.cubrir(foto2), desde=0.3, alfa_max=252) if foto2 else g.fondo_marca()
+    img = g.velado(g.cubrir(foto2), alfa=200, blur=6) if foto2 else g.fondo_marca()
     d = ImageDraw.Draw(img)
     f, lineas = g.titulo_ajustado(d, "LLEVALO HOY", 88, W - 180, 1)
     items = ["1 año de garantía Valetto",

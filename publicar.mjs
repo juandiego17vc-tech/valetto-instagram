@@ -109,6 +109,7 @@ function parsearCatalogo(html) {
       precioTransferencia: precios[1],
       foto: src,
       fotos: ficha.fotos || [],
+      ref: limpio(ficha.ref),
       movimiento: limpio(ficha.movimiento),
       diametro: limpio(ficha.diametro),
       agua: limpio(ficha.agua),
