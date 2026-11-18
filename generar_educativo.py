@@ -55,6 +55,12 @@ def todos_los_posts():
 
 
 # ---------- foto ----------
+def log(msg):
+    os.makedirs(OUT, exist_ok=True)
+    with open(os.path.join(OUT, "log.txt"), "a", encoding="utf-8") as f:
+        import datetime
+        f.write(f"{datetime.datetime.utcnow():%Y-%m-%d %H:%M} {msg}\n")
+
 def buscar_foto(query, usadas):
     url = os.environ.get("FOTO_URL")  # para muestras: una foto puntual
     if url:
@@ -62,6 +68,7 @@ def buscar_foto(query, usadas):
             return Image.open(io.BytesIO(r.read())).convert("RGB"), {"id": 0, "user": "muestra", "pageURL": url}
     key = os.environ.get("PIXABAY_KEY")
     if not key or not query:
+        log(f"Sin {'clave de Pixabay' if not key else 'búsqueda'}: uso fondo de marca")
         return None
     for orient in ("vertical", "all"):
         params = urllib.parse.urlencode({
@@ -72,7 +79,9 @@ def buscar_foto(query, usadas):
                 hits = json.load(r).get("hits", [])
         except Exception as e:
             print("Pixabay error:", e)
+            log(f"Pixabay error: {e}")
             return None
+        log(f"Pixabay '{query}' ({orient}): {len(hits)} resultados")
         buenos = [h for h in hits
                   if h["id"] not in usadas
                   and not any(m in h.get("tags", "").lower() for m in MARCAS_PROHIBIDAS)]
