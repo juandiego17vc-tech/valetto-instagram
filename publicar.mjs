@@ -393,6 +393,7 @@ async function tg(metodo, datos) {
   return d.result;
 }
 
+const detalle = (e) => [e.message, e.cause?.code, e.cause?.hostname || e.cause?.host, (e.stack || "").split("\n")[1]?.trim()].filter(Boolean).join(" | ");
 const recortar = (t, n) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
 
 async function enviarVistaPrevia(plan, hora) {
@@ -413,7 +414,13 @@ async function enviarVistaPrevia(plan, hora) {
 
 async function fueCancelado(pendiente) {
   if (!hayTelegram || !pendiente.mensaje) return false;
-  const updates = await tg("getUpdates", { allowed_updates: ["message"] });
+  let updates = [];
+  try {
+    updates = await tg("getUpdates", { allowed_updates: ["message"] });
+  } catch (e) {
+    console.log("No pude leer Telegram para ver si cancelaste:", detalle(e));
+    return false;
+  }
   return updates.some((u) => {
     const m = u.message;
     if (!m || String(m.chat.id) !== String(TG_CHAT)) return false;
@@ -676,7 +683,8 @@ if (ACCION === "auto") {
         console.log(`${tipo}: todavía no toca (previa ${h.previa}, publica ${h.publica}).`);
       }
     } catch (err) {
-      console.log(`⚠️ ${tipo}: ${err.message}`);
+      console.log(`⚠️ ${tipo}: ${detalle(err)}`);
+      appendFileSync("ultimo-error.txt", `${new Date().toISOString()} auto ${tipo}: ${detalle(err)}\n`);
       e.errores = (e.errores || 0) + 1;
       if (e.errores >= 3) {
         e.listo = true;
@@ -708,8 +716,8 @@ if (ACCION === "auto") {
     }
 
   } catch (err) {
-    console.log("ERROR:", err.message);
-    writeFileSync("ultimo-error.txt", `${new Date().toISOString()} ${ACCION}: ${err.message}\n`);
+    console.log("ERROR:", detalle(err));
+    appendFileSync("ultimo-error.txt", `${new Date().toISOString()} ${ACCION}: ${detalle(err)}\n`);
     await avisar(`⚠️ Falló "${ACCION}": ${err.message}`);
   }
 }
