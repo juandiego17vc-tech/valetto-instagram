@@ -1,5 +1,9 @@
 {
   "n": 31,
   "total": 5,
-  "foto": null
+  "foto": {
+    "id": 7024245,
+    "autor": "G-D-L",
+    "pagina": "https://pixabay.com/photos/look-pocket-watch-7024245/"
+  }
 }
