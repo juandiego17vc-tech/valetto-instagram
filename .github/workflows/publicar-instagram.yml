@@ -51,7 +51,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           A=$(head -1 disparar.txt | awk '{print $1}')
-          case "$A" in prueba|vista_previa|publicar|probar_buffer) echo "ACCION_PUSH=$A" >> $GITHUB_ENV ;; esac
+          case "$A" in prueba|vista_previa|publicar|probar_buffer|muestra_reloj) echo "ACCION_PUSH=$A" >> $GITHUB_ENV ;; esac
           T=$(head -1 disparar.txt | awk '{print $2}')
           case "$T" in reloj|educativo) echo "TIPO_PUSH=$T" >> $GITHUB_ENV ;; esac
 

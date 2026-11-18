@@ -8,7 +8,8 @@
 //   DRY_RUN=1   -> modo prueba: muestra qué publicaría, pero NO publica
 //   OVERLAY=0   -> publica la foto sola, sin la franja con nombre y precio
 
-import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, mkdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 
 const CATALOGO = "https://valetto.com.ar/catalogo";
 const GRAPH = `https://graph.instagram.com/${process.env.GRAPH_VERSION || "v23.0"}`;
@@ -41,7 +42,9 @@ function fichas(html) {
       return v ? (v[1] !== undefined ? v[1] : v[2]) : null;
     };
     const foto = (o.match(/upload\/[^"]*?\/([a-z0-9]+)\.(?:jpg|jpeg|png|webp)/i) || [])[1];
+    const fotos = [...o.matchAll(/"url":"(https:\/\/res\.cloudinary\.com[^"]+)"/g)].map((x) => x[1]);
     const f = {
+      fotos,
       id: m[1],
       ref: campo("ref"),
       movimiento: campo("movimiento"),
@@ -105,6 +108,7 @@ function parsearCatalogo(html) {
       precioTarjeta: precios[0],
       precioTransferencia: precios[1],
       foto: src,
+      fotos: ficha.fotos || [],
       movimiento: limpio(ficha.movimiento),
       diametro: limpio(ficha.diametro),
       agua: limpio(ficha.agua),
@@ -308,6 +312,41 @@ function planEducativo() {
   return { tipo: "educativo", clave: post.n, titulo: `Educativo #${post.n}: ${post.gancho}`, imagenes, caption };
 }
 
+
+// Carrusel de 3 placas (foto con fondo IA, ficha técnica, cómo comprarlo) armado con Python
+const sh = (cmd, args) => {
+  const r = spawnSync(cmd, args, { encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`${cmd} ${args.join(" ")}: ${(r.stderr || r.stdout || "").slice(-400)}`);
+  return (r.stdout || "").trim();
+};
+const sinTransformar = (u) => u.replace(/\/upload\/(?:[^/]+\/)*?(v\d+\/)/, "/upload/$1");
+
+async function carruselReloj(reloj, fondo, carpeta) {
+  const repo = process.env.GITHUB_REPOSITORY;
+  if (!repo) return null;
+  const base = sinTransformar(reloj.foto);
+  let fotoIA = base.replace("/upload/", `/upload/e_gen_background_replace:prompt_${encodeURIComponent(fondo)}/c_fill,g_center,w_1080,h_1350/f_jpg,q_90/`);
+  if (!(await imagenFunciona(fotoIA))) fotoIA = base.replace("/upload/", "/upload/c_fill,g_center,w_1080,h_1350/f_jpg,q_90/");
+  const fotos = [...new Set([base, ...(reloj.fotos || []).map(sinTransformar)])]
+    .map((u) => u.replace("/upload/", "/upload/c_limit,w_1600/f_jpg,q_90/"));
+  mkdirSync(carpeta, { recursive: true });
+  // Borro placas viejas de otros relojes para no llenar el repo
+  for (const f of readdirSync(carpeta)) if (!f.startsWith(`reloj-${reloj.id}-`)) sh("git", ["rm", "-q", "-f", `${carpeta}/${f}`]);
+  writeFileSync("/tmp/reloj.json", JSON.stringify({ ...reloj, foto_ia: fotoIA, fotos }));
+  sh("python3", ["generar_reloj.py", "/tmp/reloj.json", carpeta]);
+  sh("git", ["config", "user.name", "valetto-bot"]);
+  sh("git", ["config", "user.email", "valetto-bot@users.noreply.github.com"]);
+  sh("git", ["add", carpeta]);
+  const cambios = spawnSync("git", ["diff", "--cached", "--quiet"]).status !== 0;
+  if (cambios) {
+    sh("git", ["commit", "-q", "-m", `Placas reloj ${reloj.id}`]);
+    sh("git", ["pull", "-q", "--rebase"]);
+    sh("git", ["push", "-q"]);
+  }
+  const sha = sh("git", ["rev-parse", "HEAD"]);
+  return [1, 2, 3].map((k) => `https://raw.githubusercontent.com/${repo}/${sha}/${carpeta}/reloj-${reloj.id}-${k}.jpg`);
+}
+
 async function planReloj() {
   const relojes = await leerCatalogo();
   console.log(`Relojes disponibles encontrados: ${relojes.length}`);
@@ -318,7 +357,13 @@ async function planReloj() {
   if (OVERLAY && !(await imagenFunciona(imagen))) { console.log("Fondo IA no disponible, uso la foto original."); imagen = armarImagen(reloj, OVERLAY); }
   if (OVERLAY && !(await imagenFunciona(imagen))) imagen = armarImagen(reloj, true, "Arial");
   if (OVERLAY && !(await imagenFunciona(imagen))) imagen = armarImagen(reloj, false);
-  return { tipo: "reloj", clave: reloj.clave, titulo: `Reloj del día: ${reloj.titulo}`, imagenes: [imagen], caption: armarCaption(reloj) };
+  let imagenes = [imagen];
+  try {
+    imagenes = (await carruselReloj(reloj, fondo, process.env.CARPETA_RELOJ || "contenido/relojes")) || imagenes;
+  } catch (e) {
+    console.log("Carrusel del reloj falló, uso la imagen simple:", e.message);
+  }
+  return { tipo: "reloj", clave: reloj.clave, titulo: `Reloj del día: ${reloj.titulo}`, imagenes, caption: armarCaption(reloj) };
 }
 
 function marcarHecho(plan) {
@@ -643,7 +688,12 @@ if (ACCION === "auto") {
 } else {
   try {
     const tipo = process.env.TIPO === "educativo" ? "educativo" : "reloj";
-    if (ACCION === "probar_buffer") {
+    if (ACCION === "muestra_reloj") {
+      process.env.CARPETA_RELOJ = "contenido/muestras-reloj";
+      const plan = await planReloj();
+      mostrar(plan);
+      await avisar(`🧪 Muestra de reloj generada: ${plan.titulo}`);
+    } else if (ACCION === "probar_buffer") {
       await canalInstagramBuffer();
       await avisar("🔌 Buffer conectado OK con Instagram.");
     } else if (ACCION === "prueba") {
