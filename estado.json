@@ -1,7 +1,9 @@
 {
   "fecha": "2026-11-21",
   "educativo": {
-    "previa": 1795269780
+    "previa": 1795269780,
+    "resultado": "publicado-buffer",
+    "listo": true
   },
   "reloj": {}
 }
