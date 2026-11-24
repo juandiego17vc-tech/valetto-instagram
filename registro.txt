@@ -68,3 +68,4 @@
 2026-11-22T21:57:29.288Z ✅ Publicado (vía Buffer): Reloj del día: Citizen Eco-Drive BM7530-50X
 2026-11-23T15:03:35.988Z ✅ Publicado (vía Buffer): Educativo #36: Para qué sirve el anillo con números del cronógrafo
 2026-11-23T22:03:10.409Z ✅ Publicado (vía Buffer): Reloj del día: Citizen Blue Angels Acero AT8020-54L
+2026-11-24T15:03:11.826Z ✅ Publicado (vía Buffer): Educativo #37: Homenaje vs réplica: no es lo mismo
