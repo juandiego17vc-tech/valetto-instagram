@@ -1,1 +1,2 @@
 2026-10-21T20:29:34.946Z probar_buffer: Buffer: no encontré un canal de Instagram conectado (organizaciones: 1; canales: ninguno)
+2026-11-25T14:03:07.216Z auto educativo: fetch failed | ETIMEDOUT | at node:internal/deps/undici/undici:14976:13
